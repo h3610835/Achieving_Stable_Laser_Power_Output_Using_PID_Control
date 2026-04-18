@@ -1,0 +1,715 @@
+import time
+import numpy
+import PIL.Image
+import openpyxl
+import numpy as np
+import pandas as pd 
+from matplotlib import pyplot as plt
+
+def writeToExcel(file_path, new_list):
+    # total_list = [['A', 'B', 'C', 'D', 'E'], [1, 2, 4, 6, 8], [4, 6, 7, 9, 0], [2, 6, 4, 5, 8]]
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = '明细'
+    for r in range(len(new_list)):
+        for c in range(len(new_list[0])):
+            ws.cell(r + 1, c + 1).value = new_list[r][c]
+            # excel中的行和列是从1开始计数的，所以需要+1
+    wb.save(file_path)  # 注意，写入后一定要保存
+    print("成功写入文件: " + file_path + " !")
+    return 1
+##function that converts a number into a bit string of given length
+
+def convlen(a,l):
+    b=bin(a)[2:]
+    padding=l-len(b)
+    b='0'*padding+b
+
+    return b
+
+##function that converts a bit string into a given number of bytes
+
+def bitstobytes(a):
+    bytelist=[]
+    if len(a)%8!=0:
+        padding=8-len(a)%8
+        a='0'*padding+a
+    for i in range(len(a)//8):
+        bytelist.append(int(a[8*i:8*(i+1)],2))
+
+    bytelist.reverse()
+
+    return bytelist
+
+##function that encodes a 8 bit numpy array matrix as a enhanced run lenght encoded string of bits
+
+def mergeimages(images):
+    mergedimage=numpy.zeros((1080,1920,3),dtype='uint8')
+
+    for i in range(len(images)):
+        if i<8:
+            mergedimage[:,:,2]=mergedimage[:,:,2]+images[i]*(2**i)
+            dataFrame = pd.DataFrame(images[i]*(2**i))
+            '''
+            with pd.ExcelWriter('D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\1-images_raw_'+str(i)+'.xlsx') as writer: # 一个excel写入多页数据
+                dataFrame.to_excel(writer, sheet_name='page1', float_format='%.6f')
+            dataFrame = pd.DataFrame(images[i]*(2**i))
+            with pd.ExcelWriter('D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\1-images_2_i_'+str(i)+'.xlsx') as writer: # 一个excel写入多页数据
+                dataFrame.to_excel(writer, sheet_name='page1', float_format='%.6f')
+            '''
+        if i>7 and i<16:
+            mergedimage[:,:,1]=mergedimage[:,:,1]+images[i]*(2**(i-8))
+        if i>15 and i<24:
+            mergedimage[:,:,0]=mergedimage[:,:,0]+images[i]*(2**(i-16))
+
+    return mergedimage
+
+def encode(image): 
+
+
+## header creation
+    bytecount=0    
+    bitstring=[]
+
+    bitstring.append(0x53)
+    bitstring.append(0x70)
+    bitstring.append(0x6c)
+    bitstring.append(0x64)
+    
+    width=convlen(1920,16)
+    width=bitstobytes(width)
+    for i in range(len(width)):
+        bitstring.append(width[i])
+
+    height=convlen(1080,16)
+    height=bitstobytes(height)
+    for i in range(len(height)):
+        bitstring.append(height[i])
+
+
+    total=convlen(0,32)
+    total=bitstobytes(total)
+    for i in range(len(total)):
+        bitstring.append(total[i])        
+
+    for i in range(8):
+        bitstring.append(0xff)
+
+    for i in range(4):    ## black curtain
+        bitstring.append(0x00)
+
+    bitstring.append(0x00)
+
+    bitstring.append(0x02) ## enhanced rle
+
+    bitstring.append(0x01)
+
+    for i in range(21):
+        bitstring.append(0x00)
+
+
+
+    n=0
+    i=0
+    j=0
+
+    while i <1080:
+        while j <1920:
+            if i>0 and numpy.all(image[i,j,:]==image[i-1,j,:]):
+                while j<1920 and numpy.all(image[i,j,:]==image[i-1,j,:]):
+                    n=n+1
+                    j=j+1
+
+                bitstring.append(0x00)
+                bitstring.append(0x01)
+                bytecount+=2
+                
+                if n>=128:
+                    byte1=(n & 0x7f)|0x80
+                    byte2=(n >> 7)
+                    bitstring.append(byte1)
+                    bitstring.append(byte2)
+                    bytecount+=2
+                    
+                else:
+                    bitstring.append(n)
+                    bytecount+=1
+                n=0
+
+            
+            else:
+                if j<1919 and numpy.all(image[i,j,:]==image[i,j+1,:]):
+                    n=n+1
+                    while j<1919 and numpy.all(image[i,j,:]==image[i,j+1,:]):
+                        n=n+1
+                        j=j+1
+                    if n>=128:
+                        byte1=(n & 0x7f)|0x80
+                        byte2=(n >> 7)
+                        bitstring.append(byte1)
+                        bitstring.append(byte2)
+                        bytecount+=2
+                        
+                    else:
+                        bitstring.append(n)
+                        bytecount+=1
+
+                    bitstring.append(image[i,j-1,0])
+                    bitstring.append(image[i,j-1,1])
+                    bitstring.append(image[i,j-1,2])
+                    bytecount+=3
+                    
+                    j=j+1
+                    n=0
+
+                else:
+                    if j>1917:
+                        bitstring.append(0x01)
+                        bytecount+=1
+                        bitstring.append(image[i,j,0])
+                        bitstring.append(image[i,j,1])
+                        bitstring.append(image[i,j,2])
+                        bytecount+=3
+                        
+                        j=j+1
+                        n=0
+                    elif numpy.all(image[i,j+1,:]==image[i,j+2,:]):
+                        bitstring.append(0x01)
+                        bytecount+=1
+                        bitstring.append(image[i,j,0])
+                        bitstring.append(image[i,j,1])
+                        bitstring.append(image[i,j,2])
+                        bytecount+=3
+                        
+                        j=j+1
+                        n=0
+                    elif numpy.all(image[i,j+1,:]==image[i-1,j+1,:]):
+                        bitstring.append(0x01)
+                        bytecount+=1
+                        bitstring.append(image[i,j,0])
+                        bitstring.append(image[i,j,1])
+                        bitstring.append(image[i,j,2])
+                        bytecount+=3
+                        
+                        j=j+1
+                        n=0
+                    else:
+                        bitstring.append(0x00)
+                        bytecount+=1
+
+                        toappend=[]
+
+                        
+                        while j<1919 and numpy.any(image[i,j,:]!=image[i,j+1,:]) and numpy.any(image[i,j,:]!=image[i-1,j,:]):
+                            n=n+1
+                            toappend.append(image[i,j,0])
+                            toappend.append(image[i,j,1])
+                            toappend.append(image[i,j,2])
+                            j=j+1
+
+                        if n>=128:
+                            byte1=(n & 0x7f)|0x80
+                            byte2=(n >> 7)
+                            bitstring.append(byte1)
+                            bitstring.append(byte2)
+                            bytecount+=2
+                                
+                        else:
+                            bitstring.append(n)
+                            bytecount+=1
+
+                        for k in toappend:
+                            bitstring.append(k)
+                            bytecount+=1
+                        n=0
+        j=0
+        i=i+1
+        '''
+        bitstring.append(0x00)
+        bitstring.append(0x00)
+        bytecount+=2
+        '''
+    bitstring.append(0x00)
+    bitstring.append(0x01)
+    bitstring.append(0x00)
+    bytecount+=3
+
+    while (bytecount)%4!=0:
+        bitstring.append(0x00)
+        bytecount+=1        
+
+    size=bytecount
+
+    total=convlen(size,32)
+    total=bitstobytes(total)
+    for i in range(len(total)):
+        bitstring[i+8]=total[i]    
+    print('bitstring--------------------------')
+    print(bitstring)
+    return bitstring, bytecount
+
+
+# try opening a device, then perform write and read
+class DMD():
+    def __init__(self, VendorID = 0x0451, ProductID = 0xc900):
+        # enumerate USB devices
+        for d in hid.enumerate():
+            keys = list(d.keys())
+            keys.sort()
+        self.h = hid.device()
+        self.h.open(VendorID, ProductID)
+        self.h.set_nonblocking(1)
+
+    def command(self, WR = [], Payload = []):
+        reportID = 0
+        seqByte = 0x02
+        if WR == 'r':
+            flagByte = 0xC0
+        elif WR == 'w':
+            flagByte = 0x40
+        else:
+            print('Warning! No valid write or read sign!')
+        temp=bitstobytes(convlen(len(Payload),16))
+        lenBytes = [temp[0], temp[1]]
+        commBytes = Payload[0:2]
+        data = Payload[2:]
+        buffer = [reportID, flagByte, seqByte] + lenBytes + commBytes
+        #print('Command data-------------------------------------------------------------')
+        #print(Payload)
+        #print('END-----------------------------------------------------------------')
+        
+        if len(buffer)+len(data)<66:
+            temp=bitstobytes(convlen(len(Payload),16))
+            #print('lenBytes before',temp)
+            lenBytes = [temp[0], temp[1]]
+            #print('lenBytes after',lenBytes)
+            buffer = [reportID, flagByte, seqByte] + lenBytes + commBytes
+            for i in range(len(data)):
+                buffer.append(data[i])
+
+            for i in range(65-len(buffer)):
+                buffer.append(0x00)
+
+            #print('lenght of buffer', len(buffer))
+            #print('Command:', buffer)
+            self.h.write(buffer)
+
+        else:
+            temp=bitstobytes(convlen(len(Payload),16))
+            #print('lenBytes before',temp)
+            lenBytes = [temp[0], temp[1]]
+            #print('lenBytes after',lenBytes)
+            buffer = [reportID, flagByte, seqByte] + lenBytes + commBytes
+            for i in range(65-len(buffer)):
+                buffer.append(data[i])
+            #print('lenght of buffer', len(buffer))
+            #print('Command:', buffer)
+            self.h.write(buffer)
+            buffer = [reportID]
+
+            j=0
+            while j<len(data)-58:
+                buffer.append(data[j+58])
+                j=j+1
+                if j%64==0:
+                    #print('lenght of buffer', len(buffer))
+                    #print('Command:', buffer)
+                    self.h.write(buffer)
+                    buffer = [reportID]
+
+            if j%64!=0:
+
+                while j%64!=0:
+                    buffer.append(0x00)
+                    j=j+1
+
+                #print('lenght of buffer', len(buffer))
+                #print('Command:', buffer) 
+                self.h.write(buffer)       
+        #print('END-----------------------------------------------------------------')
+        time.sleep(0.1)
+
+        
+
+    def read_errors(self):
+        print('check errors')
+        WR = 'r'
+        lenBytes = [2, 0]
+        commBytes = [0x00, 0x01]  #[LSB, HSB]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+
+    
+    def check_hardware_status(self):
+        print('check_hardware_status')
+        WR = 'r'
+        lenBytes = [2, 0]
+        commBytes = [0x0A, 0x1A]  #[LSB, HSB]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+
+    def check_system_status(self):
+        print('check_system_status')
+        WR = 'r'
+        lenBytes = [2, 0]
+        commBytes = [0x0B, 0x1A]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+
+    def check_main_status(self):
+        print('check_main_status')
+        WR = 'r'
+        lenBytes = [2, 0]
+        commBytes = [0x0C, 0x1A]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+     # This command indicates if the flash is ready to be programmed and also if a flash operation is in progress.
+    def read_status(self):
+        print('read_status')
+        WR = 'r'
+        lenBytes = [2, 0]
+        commBytes = [0x00, 0x00]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def enter_programe_mode(self):
+        print('enter_programe_mode')
+        WR= 'w'
+        lenBytes = [3, 0]
+        commBytes = [0x01, 0x30]
+        data = [0x01]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def exit_program_mode(self):
+        print('exit_program_mode')
+        WR= 'w'
+        lenBytes = [3, 0]   #[LSB, MSB]
+        commBytes = [0x01, 0x30]    #[LSB, MSB]
+        data = [0x02]
+        data = []
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def change_mode(self, mode):
+        print('change_mode')
+        WR= 'w'
+        lenBytes = [3, 0]   #[LSB, MSB]
+        commBytes = [0x1B, 0x1A]    #[LSB, MSB]
+        data = [mode]
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def stop_display(self):
+        print('stop_display')
+        WR= 'w'
+        lenBytes = [3, 0]   #[LSB, MSB]
+        commBytes = [0x24, 0x1A]    #[LSB, MSB]
+        data = [0x00]
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def pause_display(self):
+        print('pause_display')
+        WR= 'w'
+        lenBytes = [3, 0]   #[LSB, MSB]
+        commBytes = [0x24, 0x1A]    #[LSB, MSB]
+        data = [0x01]
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def start_display(self):
+        print('start_display')
+        WR= 'w'
+        lenBytes = [3, 0]   #[LSB, MSB]
+        commBytes = [0x24, 0x1A]    #[LSB, MSB]
+        data = [0x02]
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        self.read_errors()
+    
+    def configurelut(self,imgnum,repeatnum): # Load the number of images and repeat times into the DMD
+        WR= 'w'
+        img=convlen(imgnum,11)
+        repeat=convlen(repeatnum,32)
+        string=repeat+'00000'+img
+        commBytes = [0x31, 0x1A]    #[LSB, MSB]
+        data = bitstobytes(string)
+        Payload = commBytes + data
+        print('configurelut:', Payload)
+        self.command(WR, Payload)
+        self.read_errors()
+
+    def defsequence(self,images,exp,ti,dt,to,rep):
+
+        self.stop_display()
+
+        arr=[]
+
+        
+        for i in images:
+            arr.append(i)
+        '''
+        for i in range(len(arr)):
+            dataFrame = pd.DataFrame(arr[i])
+            with pd.ExcelWriter('D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\1-test'+str(i)+'.xlsx') as writer: # 一个excel写入多页数据
+                dataFrame.to_excel(writer, sheet_name='page1', float_format='%.6f')
+        print('images number:', len(images))
+        print('type of images:', type(images[0]))
+        print('type of arr:', type(arr[0]))
+        print('images arr:', len(arr))
+        print('images:', arr)
+        plt.imshow(images[0])
+        #plt.show()
+        '''
+        
+        
+        
+##        arr.append(numpy.ones((1080,1920),dtype='uint8'))
+
+        num=len(arr)
+
+        encodedimages=[]
+        sizes=[]
+
+        for i in range((num-1)//24+1):
+            print ('merging...')
+            if i<((num-1)//24):
+                imagedata=mergeimages(arr[i*24:(i+1)*24])
+                #print('i<((num-1)//24)')
+                #print(imagedata)
+            else:
+                imagedata=mergeimages(arr[i*24:])
+                #print('2222222')
+                #print(imagedata)
+                #print('type of imagedata', type(imagedata))
+                #print('length of imagedata:',imagedata.shape)
+            '''
+            for ii in range(3):
+                dataFrame = pd.DataFrame(imagedata[:,:,ii])
+                with pd.ExcelWriter('D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\1-mergeimages'+str(ii)+'.xlsx') as writer: # 一个excel写入多页数据
+                    dataFrame.to_excel(writer, sheet_name='page1', float_format='%.6f')
+            time.sleep(1000)
+            '''
+            #print ('encoding...')
+            imagedata,size=encode(imagedata)
+            
+            #print('After encode')
+            #print(imagedata)
+            #print('size', size)
+            encodedimages.append(imagedata)
+            sizes.append(size)
+            if i<((num-1)//24):
+                for j in range(i*24,(i+1)*24):
+                    #print('first definepattern', j)
+                    self.definepattern(j,exp[j],1,'001',ti[j],dt[j],to[j],i,j-i*24)
+            else:
+                for j in range(i*24,num):
+                    #print('second definepattern', j)
+                    self.definepattern(j,exp[j],1,'001',ti[j],dt[j],to[j],i,j-i*24)
+
+
+
+        for i in range((num-1)//24+1):
+        
+            self.setbmp((num-1)//24-i,sizes[(num-1)//24-i])
+
+            #print ('uploading...')
+            self.bmpload(encodedimages[(num-1)//24-i],sizes[(num-1)//24-i])
+            #print(sizes[(num-1)//24-i])
+
+        self.configurelut(num,rep)
+
+    
+    def definepattern(self,index,exposure,bitdepth,color,triggerin,darktime,triggerout,patind,bitpos):
+        WR = 'w'
+        payload=[]
+        print('index first', index)
+        index=convlen(index,16)
+        print('index 16', index)
+        index=bitstobytes(index)
+        print('index bytes', index)
+        print('Payload:', payload)
+        for i in range(len(index)):
+            payload.append(index[i])
+            print(i,';Payload:', payload)
+
+        print('exposure 1',exposure)
+        exposure=convlen(exposure,24)
+        print('exposure 2',exposure)
+        exposure=bitstobytes(exposure)
+        print('exposure 3',exposure)
+        for i in range(len(exposure)):
+            payload.append(exposure[i])
+            print(i,';Payload:', payload)
+        optionsbyte=''
+        print('optionsbyte 1:',optionsbyte)
+        optionsbyte+='1'
+        print('optionsbyte 2:',optionsbyte)
+        bitdepth=convlen(bitdepth-1,3)
+        print('bitdepth:',bitdepth)
+        optionsbyte=bitdepth+optionsbyte
+        print('bitdepth+optionsbyte:',optionsbyte)
+        optionsbyte=color+optionsbyte
+        print('color+optionsbyte:',optionsbyte)
+        if triggerin:
+            optionsbyte='1'+optionsbyte
+        else:
+            optionsbyte='0'+optionsbyte
+
+        payload.append(bitstobytes(optionsbyte)[0])
+        print('Payload:', payload)
+        darktime=convlen(darktime,24)
+        darktime=bitstobytes(darktime)
+        for i in range(len(darktime)):
+            payload.append(darktime[i])
+            print(i,';Payload:', payload)
+        print('triggerout 1', triggerout)
+        triggerout=convlen(triggerout,8)
+        print('triggerout 2', triggerout)
+        triggerout=bitstobytes(triggerout)
+        print('triggerout 3', triggerout)
+        print('triggerout[0]', triggerout[0])
+        payload.append(triggerout[0])
+        print('Payload:', payload)
+        print('patind 1:', patind)
+        patind=convlen(patind,11)
+        print('patind 2:', patind)
+        print('bitpos 1:', bitpos)
+        bitpos=convlen(bitpos,5)
+        print('bitpos 2:', bitpos)
+        lastbits=bitpos+patind
+        print('bitpos+patind:', lastbits)
+        lastbits=bitstobytes(lastbits)
+        print('lastbits:', lastbits)
+        for i in range(len(lastbits)):
+            payload.append(lastbits[i])
+            print(i,';Payload:', payload)
+        commBytes = [0x34, 0x1A]    #[LSB, MSB]
+        data = payload
+        print(len(data))
+        print('definePattern')
+        Payload = commBytes + data
+        #print('Payload:', Payload)
+        self.command(WR, Payload)
+        #self.read_errors()
+
+    def setbmp(self,index,size):
+        WR = 'w'
+        payload=[]
+
+        index=convlen(index,5)
+        index='0'*11+index
+        index=bitstobytes(index)
+        for i in range(len(index)):
+            payload.append(index[i]) 
+
+        size = size
+        total=convlen(size,32)
+        total=bitstobytes(total)
+        for i in range(len(total)):
+            payload.append(total[i])         
+        
+        commBytes = [0x2A, 0x1A]    #[LSB, MSB]
+        data = payload
+        print('setbmp:', data)
+        Payload = commBytes + data
+        self.command(WR, Payload)
+        #self.read_errors()
+    
+    ## bmp loading function, divided in 56 bytes packages
+## max  hid package size=64, flag bytes=4, usb command bytes=2
+## size of package description bytes=2. 64-4-2-2=56
+
+    def bmpload(self,image,size):
+        WR = 'w'
+        print('size-----------------------------------------------------------:',size)
+        print('size of image:', len(image))
+        packnum=(size+48)//504+1
+        #print('packnum:',packnum)
+        counter=0
+        for i in range(packnum):
+            if i %100==0:
+                print (i,packnum)
+            payload=[]
+            if i<packnum-1:
+                leng=convlen(504,16)
+                bits=504
+            else:
+                leng=convlen(size%504,16)
+                bits=size%504
+            leng=bitstobytes(leng)
+            for j in range(2):
+                payload.append(leng[j])
+            for j in range(bits):
+                payload.append(image[counter])
+                counter+=1
+            
+            commBytes = [0x2B, 0x1A]    #[LSB, MSB]
+            data = payload
+            #print('bmpload:',i)
+            #print('length of images', len(payload))
+            Payload = commBytes + data
+            #print(Payload)
+            #time.sleep(10000)
+            self.command(WR, Payload)
+
+            #self.read_errors()
+        
+    def close(self):
+        self.h.close()
+        print('The DMD has been closed!')
+ 
+    
+
+        print("Done")
+
+if __name__ == '__main__':
+    images=[]
+    #,30,45, 60, 90, 120, 135, 150
+    '''
+    for i in [0,30,45, 60, 90, 120, 135, 150]:
+        for j in [0, 120, 240]:
+            images.append((numpy.asarray(PIL.Image.open('D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\Fringe_period112_ori'+str(i)+'_phase'+str(j)+'.bmp'))))
+    '''
+    images.append((numpy.asarray(PIL.Image.open("D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\b_white.bmp"))))
+
+    #images.append((numpy.asarray(PIL.Image.open("D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\Fringe_period112_ori60_phase240.bmp"))))
+    #images.append((numpy.asarray(PIL.Image.open("D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\0_Binary.bmp"))))
+    #images.append((numpy.asarray(PIL.Image.open("D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\6_Block.bmp"))))
+    
+    #images.append((numpy.asarray(PIL.Image.open("D:\\OneDrive - connect.hku.hk\\25-Python Program\\21-Python Program（HKU LAB）\\testimage.tif"))//129))
+
+    dlp = DMD()
+    
+    #dlp.stop_display()
+    
+    dlp.change_mode(3)
+    num = len(images)
+    print('num:',num)
+    exposure=[1000000]*num
+    dark_time=[500000]*num
+    trigger_in=[True]*num
+    trigger_out=[False]*num
+
+    dlp.defsequence(images,exposure,trigger_in,dark_time,trigger_out,num*2)
+
+    dlp.start_display()
+    dlp.close()
+    
