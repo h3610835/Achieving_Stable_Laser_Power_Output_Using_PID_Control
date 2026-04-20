@@ -269,6 +269,7 @@ print(f"  - {pid_path}")
 
 # =================================================================================
 # SECTION 8: VISUALIZATION
+# Colors: Red (Original) → Orange (P) → Yellow (PI) → Green (PID)
 # =================================================================================
 
 # Convert to milliwatts for plotting.
@@ -287,38 +288,38 @@ ymax += padding
 # Create figure with four subplots (original + 3 controllers).
 plt.figure(figsize=(12, 10))
 
-# Subplot 1: Original (free-running) data.
+# Subplot 1: Original (free-running) data - RED
 plt.subplot(4, 1, 1)
-plt.plot(time, original_mw, 'b-', alpha=0.7, label='Original (free-running)', linewidth=1)
-plt.axhline(y=setpoint*1e3, color='g', linestyle='--', alpha=0.5, label=f'Setpoint: {setpoint*1e3:.2f} mW')
+plt.plot(time, original_mw, color='#d62728', alpha=0.8, label='Original', linewidth=1.5)
+plt.axhline(y=setpoint*1e3, color='gray', linestyle='--', alpha=0.5, label=f'Setpoint: {setpoint*1e3:.2f} mW')
 plt.ylabel('Power (mW)')
-plt.title('PID Family Controller Comparison (same y-scale, mild gains for illustration)')
+plt.title('PID Control Simulation')
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.ylim(ymin, ymax)
 
-# Subplot 2: P-Only stabilized data.
+# Subplot 2: P-Only stabilized data - ORANGE
 plt.subplot(4, 1, 2)
-plt.plot(time, stab_p_mw, 'r-', alpha=0.8, label=f'P-Only (Kp={kp}) | σ = {p_std*1e6:.1f} µW | RSD = {p_rsd:.3f}%', linewidth=1.5)
-plt.axhline(y=setpoint*1e3, color='g', linestyle='--', alpha=0.5)
+plt.plot(time, stab_p_mw, color='#ff7f0e', alpha=0.8, label=f'P-Only (Kp={kp}) | σ = {p_std*1e6:.1f} µW | RSD = {p_rsd:.3f}%', linewidth=1.5)
+plt.axhline(y=setpoint*1e3, color='gray', linestyle='--', alpha=0.5)
 plt.ylabel('Power (mW)')
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.ylim(ymin, ymax)
 
-# Subplot 3: PI stabilized data.
+# Subplot 3: PI stabilized data - YELLOW
 plt.subplot(4, 1, 3)
-plt.plot(time, stab_pi_mw, 'orange', alpha=0.8, label=f'PI (Kp={kp}, Ki={ki}) | σ = {pi_std*1e6:.1f} µW | RSD = {pi_rsd:.3f}%', linewidth=1.5)
-plt.axhline(y=setpoint*1e3, color='g', linestyle='--', alpha=0.5)
+plt.plot(time, stab_pi_mw, color='#ffdd00', alpha=0.8, label=f'PI (Kp={kp}, Ki={ki}) | σ = {pi_std*1e6:.1f} µW | RSD = {pi_rsd:.3f}%', linewidth=1.5)
+plt.axhline(y=setpoint*1e3, color='gray', linestyle='--', alpha=0.5)
 plt.ylabel('Power (mW)')
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.ylim(ymin, ymax)
 
-# Subplot 4: Full PID stabilized data.
+# Subplot 4: Full PID stabilized data - GREEN
 plt.subplot(4, 1, 4)
-plt.plot(time, stab_pid_mw, 'green', alpha=0.8, label=f'PID (Kp={kp}, Ki={ki}, Kd={kd}) | σ = {pid_std*1e6:.1f} µW | RSD = {pid_rsd:.3f}%', linewidth=1.5)
-plt.axhline(y=setpoint*1e3, color='g', linestyle='--', alpha=0.5)
+plt.plot(time, stab_pid_mw, color='#2ca02c', alpha=0.8, label=f'PID (Kp={kp}, Ki={ki}, Kd={kd}) | σ = {pid_std*1e6:.1f} µW | RSD = {pid_rsd:.3f}%', linewidth=1.5)
+plt.axhline(y=setpoint*1e3, color='gray', linestyle='--', alpha=0.5)
 plt.ylabel('Power (mW)')
 plt.xlabel('Time (seconds)')
 plt.legend()
