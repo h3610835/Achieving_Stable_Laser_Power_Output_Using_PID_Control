@@ -1,8 +1,6 @@
 # Achieving_Stable_Laser_Power_Output_Using_PID_Control
-================================================================================
                     LASER POWER STABILIZATION SYSTEM
                     PID Control with Thorlabs Power Meter
-================================================================================
 
 REQUIRED FILES (same folder):
 ---------------------------
@@ -14,10 +12,10 @@ INSTALLATION:
 ------------
 pip install PyQt5 numpy matplotlib pandas scipy
 
-================================================================================
+
                          PROGRAM 1: LASER CONTROL GUI
                         (laser_control_gui.py)
-================================================================================
+
 
 WHAT IT DOES:
 ------------
@@ -49,10 +47,10 @@ HOTKEYS:
 --------
 F11 = Fullscreen | Ctrl+Q = Exit
 
-================================================================================
+
                       PROGRAM 2: AUTOMATED PID SWEEPER
                         (sweeper.py)
-================================================================================
+
 
 WHAT IT DOES:
 ------------
@@ -92,9 +90,9 @@ CUSTOMIZE DURATION:
 ------------------
 Edit in sweeper.py: RECORDING_DURATION = 300  # seconds
 
-================================================================================
+
                            PID TUNING QUICK GUIDE
-================================================================================
+
 
 Kp (Proportional) = Response speed     (start: 0.3-0.5)
 Ki (Integral)     = Steady-state error (start: 0.05-0.1)
@@ -112,18 +110,18 @@ Power Level Guidelines:
 High power (5 dBm)   → Larger gains (Kp up to 1.0)
 Low power (-5 dBm)   → Smaller gains (Kp < 0.4)
 
-================================================================================
+
                          TROUBLESHOOTING
-================================================================================
+
 
 "TLPMX not available"        → Check TLPMX.py and TLPMX_64.dll in folder
 "Could not connect"          → Check USB, close other software, restart meter
 "No data recording"          → Ensure "Thorlabs Live" selected, check connection
 "Sweeper not saving"         → Check folder permissions, run as administrator
 
-================================================================================
+
                                FILE STRUCTURE
-================================================================================
+
 
 Your_Folder/
 ├── laser_control_gui.py
@@ -137,9 +135,9 @@ Output: pid_sweep_YYYYMMDD_HHMMSS/
         ├── master_summary.csv
         └── sweep_report.txt
 
-================================================================================
+
                                   NOTES
-================================================================================
+
 
 • Both programs require TLPMX.py and TLPMX_64.dll in the same folder
 • Synthetic data mode works without hardware (for testing)
